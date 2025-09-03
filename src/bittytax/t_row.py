@@ -14,6 +14,7 @@ from .config import config
 from .constants import TZ_UTC
 from .exceptions import (
     DataValueError,
+    IgnoredAssetError,
     MissingDataError,
     TimestampParserError,
     TransactionParserError,
@@ -551,7 +552,16 @@ class TransactionRow:
                     self.HEADER.index(asset_hdr), asset_hdr, self.row_dict[asset_hdr]
                 )
 
-            return AssetSymbol(self.row_dict[asset_hdr])
+            asset_symbol = AssetSymbol(self.row_dict[asset_hdr])
+
+            # Check if asset is in ignore list (case-insensitive)
+            if any(str(asset_symbol).upper() == ignored_asset.upper()
+                   for ignored_asset in config.ignore_assets):
+                raise IgnoredAssetError(
+                    self.HEADER.index(asset_hdr), asset_hdr, asset_symbol
+                )
+
+            return asset_symbol
 
         if required is FieldRequired.MANDATORY:
             raise MissingDataError(self.HEADER.index(asset_hdr), asset_hdr)

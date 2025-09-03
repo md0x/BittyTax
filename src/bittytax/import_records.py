@@ -13,7 +13,7 @@ from tqdm import tqdm, trange
 
 from .config import config
 from .constants import ERROR, FONT_COLOR_TX_DEST, FONT_COLOR_TX_HASH, FONT_COLOR_TX_SRC
-from .exceptions import TransactionParserError
+from .exceptions import IgnoredAssetError, TransactionParserError
 from .t_record import TransactionRecord
 from .t_row import TransactionRow, TxRaw
 from .utils import bt_tqdm_write, disable_tqdm
@@ -75,6 +75,12 @@ class ImportRecords:
 
                 try:
                     t_row.parse()
+                except IgnoredAssetError as e:
+                    # Skip ignored assets silently unless debug is on
+                    if config.debug:
+                        bt_tqdm_write(f"{Fore.CYAN}import: {t_row}")
+                        bt_tqdm_write(f"{Fore.CYAN}IGNORED: {e}")
+                    continue
                 except TransactionParserError as e:
                     t_row.failure = e
                 else:
@@ -126,6 +132,12 @@ class ImportRecords:
 
                 try:
                     t_row.parse()
+                except IgnoredAssetError as e:
+                    # Skip ignored assets silently unless debug is on
+                    if config.debug:
+                        bt_tqdm_write(f"{Fore.CYAN}import: {t_row}")
+                        bt_tqdm_write(f"{Fore.CYAN}IGNORED: {e}")
+                    continue
                 except TransactionParserError as e:
                     t_row.failure = e
 
@@ -212,6 +224,12 @@ class ImportRecords:
             t_row = TransactionRow(row[: len(TransactionRow.HEADER)], reader.line_num, filename)
             try:
                 t_row.parse()
+            except IgnoredAssetError as e:
+                # Skip ignored assets silently unless debug is on
+                if config.debug:
+                    bt_tqdm_write(f"{Fore.CYAN}import: {t_row}")
+                    bt_tqdm_write(f"{Fore.CYAN}IGNORED: {e}")
+                continue
             except TransactionParserError as e:
                 t_row.failure = e
 
