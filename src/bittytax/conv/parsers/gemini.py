@@ -34,12 +34,14 @@ QUOTE_ASSETS = [
     "SGD",
     "SOL",
     "USD",
+    "USDC",
     "USDT",
 ]
 
 TRADINGPAIR_TO_QUOTE_ASSET = {
     "MOODENGUSD": "USD",
     "PAXGUSD": "USD",
+    "USDGUSD": "USD",
 }
 
 
