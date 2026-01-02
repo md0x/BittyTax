@@ -4,18 +4,19 @@
 
 import argparse
 import builtins
+import datetime
 import io
 import os
 import platform
 import sys
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import colorama
 from colorama import Fore
 
 from .audit import AuditRecords
 from .audit_excel import AuditLogExcel
-from .bt_types import TAX_RULES_UK_COMPANY, AssetSymbol, DisposalType, TaxRules, Year
+from .bt_types import TAX_RULES_UK_COMPANY, AssetSymbol, Date, DisposalType, TaxRules, Year
 from .config import config
 from .constants import ERROR, TERMINAL_POWERSHELL_GUI, WARNING
 from .exceptions import ImportFailureError
@@ -102,6 +103,12 @@ def main() -> None:
         help="only output the capital gains summary in the tax report",
     )
     parser.add_argument(
+        "--holdings-date",
+        dest="holdings_date",
+        type=_validate_holdings_date,
+        help="value holdings as of a specific date (YYYY-MM-DD)",
+    )
+    parser.add_argument(
         "-o",
         dest="output_filename",
         type=str,
@@ -172,7 +179,9 @@ def main() -> None:
                 tax.process_income()
                 tax.process_margin_trades()
 
-            _do_each_tax_year(tax, args.tax_year, args.summary_only, value_asset)
+            _do_each_tax_year(
+                tax, args.tax_year, args.summary_only, value_asset, args.holdings_date
+            )
 
         except DataSourceError as e:
             parser.exit(message=f"{ERROR} {e}\n")
@@ -199,6 +208,25 @@ def _validate_year(value: str) -> int:
         )
 
     return year
+
+
+def _validate_holdings_date(value: str) -> Date:
+    try:
+        date_value = datetime.date.fromisoformat(value)
+    except ValueError as e:
+        raise argparse.ArgumentTypeError(
+            "holdings date is not valid, use YYYY-MM-DD"
+        ) from e
+
+    if date_value.strftime("%Y-%m-%d") != value:
+        raise argparse.ArgumentTypeError(
+            "holdings date format is not valid, use YYYY-MM-DD"
+        )
+
+    if date_value > datetime.date.today():
+        raise argparse.ArgumentTypeError("holdings date cannot be in the future")
+
+    return Date(date_value)
 
 
 def _do_import(filename: str) -> List[TransactionRecord]:
@@ -283,7 +311,11 @@ def _transfer_mismatches(holdings: Dict[AssetSymbol, Holdings]) -> bool:
 
 
 def _do_each_tax_year(
-    tax: TaxCalculator, tax_year: Year, summary_only: bool, value_asset: ValueAsset
+    tax: TaxCalculator,
+    tax_year: Year,
+    summary_only: bool,
+    value_asset: ValueAsset,
+    holdings_date: Optional[Date] = None,
 ) -> None:
     if tax_year:
         print(f"{Fore.CYAN}calculating tax year {config.format_tax_year(tax_year)}")
@@ -320,7 +352,7 @@ def _do_each_tax_year(
                 print(f"{WARNING} Tax year {year} is not supported")
 
         if not summary_only:
-            tax.calculate_holdings(value_asset)
+            tax.calculate_holdings(value_asset, holdings_date)
 
 
 def _do_export(transaction_records: List[TransactionRecord]) -> None:

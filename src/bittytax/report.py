@@ -60,6 +60,7 @@ class ReportPdf:
 
         self.env.filters["datefilter"] = self.datefilter
         self.env.filters["datefilter2"] = self.datefilter2
+        self.env.filters["datefilter_long"] = self.datefilter_long
         self.env.filters["quantityfilter"] = self.quantityfilter
         self.env.filters["valuefilter"] = self.valuefilter
         self.env.filters["ratefilter"] = self.ratefilter
@@ -129,6 +130,10 @@ class ReportPdf:
     @staticmethod
     def datefilter2(date: Date) -> str:
         return f"{date:%b} {date.day}{ReportLog.format_day(date.day)} {date:%Y}"
+
+    @staticmethod
+    def datefilter_long(date: Date) -> str:
+        return f"{date.day} {date:%B} {date:%Y}"
 
     @staticmethod
     def quantityfilter(quantity: Decimal) -> str:
@@ -619,7 +624,13 @@ class ReportLog:
             print(f"{Fore.BLUE}*Price of {self.format_value(Decimal(0))} used")
 
     def _holdings(self, holdings_report: HoldingsReportRecord) -> None:
-        print(f"{Fore.CYAN}Current Holdings\n")
+        valuation_date = holdings_report.get("valuation_date")
+        if valuation_date:
+            print(
+                f"{Fore.CYAN}Holdings valued as of {self.format_date_long(valuation_date)}\n"
+            )
+        else:
+            print(f"{Fore.CYAN}Current Holdings\n")
 
         header = (
             f'{"Asset":<{self.ASSET_WIDTH}} {"Quantity":>25} {"Cost + Fees":>16} '
@@ -666,6 +677,10 @@ class ReportLog:
     @staticmethod
     def format_date2(date: Date) -> str:
         return f"{date:%b} {date.day}{ReportLog.format_day(date.day)} {date:%Y}"
+
+    @staticmethod
+    def format_date_long(date: Date) -> str:
+        return f"{date.day} {date:%B} {date:%Y}"
 
     @staticmethod
     def format_day(day: int) -> str:
