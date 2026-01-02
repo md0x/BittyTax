@@ -42,6 +42,11 @@ class MissingDataError(TransactionParserError):
         return f"Missing data for {self.col_name}"
 
 
+class IgnoredAssetError(TransactionParserError):
+    def __str__(self) -> str:
+        return f"Asset '{self.value}' is in ignore list, transaction skipped"
+
+
 class ImportFailureError(Exception):
     def __str__(self) -> str:
         return "Import failure"
