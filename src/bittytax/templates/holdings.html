@@ -1,4 +1,8 @@
+{% if holdings_report['valuation_date'] %}
+<h2>Holdings valued as of {{ holdings_report['valuation_date']|datefilter_long }}</h2>
+{% else %}
 <h2>Current Holdings</h2>
+{% endif %}
 <table repeat="1" width="100%" class="asset-table">
     <tr>
         <th align="left">Asset</th>

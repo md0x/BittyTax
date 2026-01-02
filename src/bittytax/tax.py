@@ -23,6 +23,7 @@ from .bt_types import (
     FixedValue,
     Note,
     TaxRules,
+    Timestamp,
     TrType,
     Wallet,
     Year,
@@ -63,6 +64,7 @@ class HoldingsReportTotal(TypedDict):  # pylint: disable=too-few-public-methods
 class HoldingsReportRecord(TypedDict):  # pylint: disable=too-few-public-methods
     holdings: Dict[AssetSymbol, HoldingsReportAsset]
     totals: HoldingsReportTotal
+    valuation_date: Optional[Date]
 
 
 class CapitalGainsIndividual(TypedDict):  # pylint: disable=too-few-public-methods
@@ -559,9 +561,17 @@ class TaxCalculator:  # pylint: disable=too-many-instance-attributes
         calc_margin_trading.totals_by_contract()
         return calc_margin_trading
 
-    def calculate_holdings(self, value_asset: ValueAsset) -> None:
+    def calculate_holdings(
+        self, value_asset: ValueAsset, valuation_date: Optional[Date] = None
+    ) -> None:
         holdings: Dict[AssetSymbol, HoldingsReportAsset] = {}
         totals: HoldingsReportTotal = {"cost": Decimal(0), "value": Decimal(0), "gain": Decimal(0)}
+        valuation_timestamp = None
+
+        if valuation_date is not None:
+            valuation_timestamp = Timestamp(
+                datetime.datetime.combine(valuation_date, datetime.time.min)
+            )
 
         if config.debug:
             print(f"{Fore.CYAN}calculating holdings")
@@ -574,9 +584,22 @@ class TaxCalculator:  # pylint: disable=too-many-instance-attributes
         ):
             if self.holdings[h].quantity > 0 or config.show_empty_wallets:
                 try:
-                    value, name, _ = value_asset.get_current_value(
-                        self.holdings[h].asset, self.holdings[h].quantity
-                    )
+                    if valuation_date is None or valuation_date == datetime.date.today():
+                        value, name, _ = value_asset.get_current_value(
+                            self.holdings[h].asset, self.holdings[h].quantity
+                        )
+                    else:
+                        if valuation_timestamp is None:
+                            raise RuntimeError("Missing valuation timestamp")
+
+                        asset_price_ccy, name, _ = value_asset.get_historical_price(
+                            self.holdings[h].asset, valuation_timestamp
+                        )
+                        value = (
+                            asset_price_ccy * self.holdings[h].quantity
+                            if asset_price_ccy is not None
+                            else None
+                        )
                 except requests.exceptions.HTTPError as e:
                     bt_tqdm_write(
                         f"{WARNING} Skipping valuation of {self.holdings[h].asset} "
@@ -609,7 +632,11 @@ class TaxCalculator:  # pylint: disable=too-many-instance-attributes
 
                 totals["cost"] += holdings[h]["cost"]
 
-        self.holdings_report = {"holdings": holdings, "totals": totals}
+        self.holdings_report = {
+            "holdings": holdings,
+            "totals": totals,
+            "valuation_date": valuation_date,
+        }
 
     def _which_tax_year(self, date: Date) -> Year:
         if date > config.get_tax_year_end(date.year):
